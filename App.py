@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
-
+import plotly.express as px
+import plotly.graph_objects as go
 
 ################################################
 ###### CARGA, PREPROCESAMIENTO Y ANÁLISIS ######
@@ -35,14 +36,43 @@ condicion = [
 ### de que DEPARTAMENTO esté en la lista
 df_cont = df[~df['DEPARTAMENTO'].isin(condicion)]
 
+## TAMAÑO DEL DATAFRAME
 variables = df_cont.shape[0]
 registros = df_cont.shape[1]
 num_deptos = df_cont['DEPARTAMENTO'].nunique()
 num_mpios = df_cont['MUNICIPIO'].nunique()
 
+## ORDENAR EL DATAFRAME POR AÑO Y DEPARTAMENTO DE MAYOR A MENOR
+df_depto_anio = df_cont.groupby(['DEPARTAMENTO', 'AÑO SERVICIO'])['ENERGÍA ACTIVA'].sum().reset_index()
 
-st.image('./img/Imag.png')
-st.dataframe(df_cont)
+## GENERAR EL LISTADO DE DEPARTAMENTOS
+lista_deptos = df_depto_anio['DEPARTAMENTO'].unique().tolist()
+
+################################################
+################# VISUALIZACIÓN ################
+################################################
+
+##############  CONFIGURACIÓN DE LA PÁGINA  ##############
+st.set_page_config(
+    page_title='Análisis de la Energía en Colombia',
+    page_icon='⚡',
+    layout='centered'
+)
+
+st.markdown(
+    '''
+    <style>
+        .block-container {
+            max-width: 1200px;
+        }
+    ''',unsafe_allow_html=True
+)
+
+
+st.image('./img/encabezado.png', use_container_width=True)
+
+
+##############  DETALLES DEL DATASET  ##############
 
 with st.container(border=True):
     st.subheader('Descripción del Dataset')
@@ -58,10 +88,51 @@ with st.container(border=True):
         st.metric('Departamentos', num_deptos, border=True)
 
     with col4:
-        st.metric('Municipios',num_mpios, border=True)
+        st.metric('Municipios', num_mpios, border=True)
 
-if st.checkbox('Mostrar detalle de la fuente de los datos'):
-    st.write('Conjunto de datos obtenidos del portal de datos abiertos de colombia')
-    st.write('Disponible en https://www.datos.gov.co/Minas-y-Energ-a/Estado-de-la-prestaci-n-del-servicio-de-energ-a-en/3ebi-d83g/about_data')
-with st.expander('Ver conjuto de datos completo'):
-    st.dataframe(df_cont)
+    if st.checkbox('Mostrar detalles de la fuente de los datos'):
+        st.write('Conjunto de datos obtenidos del portal de datos abiertos del Gobierno Nacional de Colombia.')
+        st.write('Disponible en: https://www.datos.gov.co/Minas-y-Energ-a/Estado-de-la-prestaci-n-del-servicio-de-energ-a-en/3ebi-d83g')
+
+    with st.expander('Ver conjunto de Datos completo'):
+        st.dataframe(df_cont)
+
+
+##############  GRAFICO INTERACTIVO DE BARRAS POR DEPARTAMENTO Y AÑO  ##############
+
+with st.container(border=True):
+    st.subheader('Evolución de la Energía Activa por Departamento')
+
+    depto_seleccionado = st.selectbox(
+        'Seleccione un Departamento:',
+        options=lista_deptos
+    )
+
+    condicion_filtro = df_depto_anio['DEPARTAMENTO'] == depto_seleccionado
+    df_departamento = df_depto_anio[condicion_filtro]
+
+    ## Crear el gráfico de barras
+    # 1. Crear el objeto Figure
+    fig_barras = go.Figure()
+
+    # 2. Agregar las barras a fig_barras
+    fig_barras.add_trace(go.Bar(
+        x=df_departamento['ENERGÍA ACTIVA'],
+        y=df_departamento['AÑO SERVICIO'].astype(str),
+        orientation='h',
+        text=df_departamento['ENERGÍA ACTIVA'],
+        marker_color="#3785ba",
+        textposition='auto'
+    ))
+
+    # 3. Actualizar el diseño del gráfico
+    fig_barras.update_layout(
+        height=400,
+        showlegend=False,
+        yaxis={'categoryorder': 'category ascending'}
+    )
+
+    # 4. Mostrar el gráfico
+    st.plotly_chart(fig_barras, use_container_width=True)
+    
+
